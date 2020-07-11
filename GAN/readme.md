@@ -1,0 +1,1 @@
+![Dogs image after 200 epochs](./assets/training_after_200_epochs.png)
