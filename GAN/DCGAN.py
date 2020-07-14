@@ -150,24 +150,29 @@ class DCGAN(LightningModule):
     def show_current_generation(self):
         z = torch.rand((1,128)).to(device)
         gen_img = self.generator(z)
-        score = self.discriminator(gen_img)
+        #score = self.discriminator(gen_img)
         
         gen_img = gen_img.squeeze().data.cpu()
-        img = transforms.ToPILImage()(gen_img).convert("RGB")
-        print ("Score of this Generation: ", score)
-        plt.imshow(img)
-        plt.show()
+        #img = transforms.ToPILImage()(gen_img).convert("RGB")
+        #print ("Score of this Generation: ", score)
+        #plt.imshow(img)
+        #plt.show()
+        #self.experiment.add_image("Generated Image {}, img, self.trainer.global_step)
+        return gen_img
 
     def validation_step(self, batch, batch_idx):
         
         # show the first image
         if batch_idx == 0:
-            self.show_current_generation()
+            for i in range(5):
+                img = self.show_current_generation()
+                epoch = self.trainer.current_epoch #global_step
+                step = self.trainer.global_step
+                self.logger.experiment.add_image("Generation {}-{}".format(epoch, i), img, step)
         
         output = self.training_step(batch, batch_idx, 1)
         return {
             'val_loss': output['loss']
-        }
     
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
