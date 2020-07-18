@@ -13,8 +13,9 @@ import matplotlib.pyplot as plt
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 #DIR_PATH = "/kaggle/input/stanford-dogs-dataset/images/Images"
-DIR_PATH = "/data/vitou/100DaysofCode/datasets/stanford-dogs-dataset/images/Images"
+#DIR_PATH = "/data/vitou/100DaysofCode/datasets/stanford-dogs-dataset/images/Images"
 #DIR_PATH = "/data/vitou/100DaysofCode/datasets/mnistasjpg/trainingSet/trainingSet"
+DIR_PATH = "/data/vitou/100DaysofCode/datasets/cifar10/train"
 
 class Discriminator(nn.Module):
     def __init__(self):
@@ -24,19 +25,19 @@ class Discriminator(nn.Module):
             nn.BatchNorm2d(16),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(16, 32, 5, padding=1, stride=2, bias=False),
+            nn.Conv2d(16, 32, 5, padding=2, stride=2, bias=False),
             nn.BatchNorm2d(32),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(32, 64, 5, padding=1, stride=2, bias=False),
+            nn.Conv2d(32, 64, 5, padding=2, stride=2, bias=False),
             nn.BatchNorm2d(64),
             nn.LeakyReLU(0.2, inplace=True),
-
+                                                    
             nn.Flatten(),
-
-            nn.Linear(64*6*6, 1),
+            nn.Linear(64*4*4, 1),
             nn.Sigmoid()
         )
+         
         
     def forward(self, x):
         h = self.fc(x)
@@ -47,31 +48,24 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
 
         self.fc = nn.Sequential(
-                nn.Linear(100, 1024*4*4),
-                nn.BatchNorm1d(1024*4*4),
-                #nn.ReLU(True)
-                nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(100, 512*4*4),
+            nn.BatchNorm1d(512*4*4),
+            nn.LeakyReLU(0.2, inplace=True),
         )
         self.fc2 = nn.Sequential(
-            nn.ConvTranspose2d(1024, 512, 3,  stride=1, padding=0, bias=False),
-            nn.BatchNorm2d(512),
-            #nn.ReLU(True),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.ConvTranspose2d(512, 256, 5,  stride=2, padding=1, bias=False),
+            nn.ConvTranspose2d(512, 256, 4,  stride=2, padding=1, bias=False),
             nn.BatchNorm2d(256),
-            #nn.ReLU(True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.ConvTranspose2d(256, 128, 5,  stride=2, padding=1, bias=False),
+            nn.ConvTranspose2d(256, 128, 4,  stride=2, padding=1, bias=False),
             nn.BatchNorm2d(128),
-            #nn.ReLU(True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.ConvTranspose2d(128, 3, 5,  stride=2, padding=1, bias=False),
+            nn.ConvTranspose2d(128, 3, 4,  stride=2, padding=1, bias=False),
             nn.Tanh()
         )
 
     def forward(self, z):
         x = self.fc(z)
-        x = x.view(-1, 1024, 4, 4)
+        x = x.view(-1, 512, 4, 4)
         return self.fc2(x)
 
 class DCGAN(LightningModule):
@@ -100,6 +94,11 @@ class DCGAN(LightningModule):
         self.valid_indices = indices[int(N*0.7):int(N*0.85)]
         self.test_indices  = indices[int(N*0.85):]
 
+    def get_noise(self, x):
+        cur_epoch = self.trainer.current_epoch
+        noise = torch.randn_like(x) 
+        noise /= (5*(cur_epoch+1))
+        return noise
 
     def training_step(self, batch, batch_idx, optimizer_idx):
         
@@ -107,8 +106,7 @@ class DCGAN(LightningModule):
         if optimizer_idx == 0:
             x, label = batch
             x, label = x.to(device), label.to(device)
-            noise = torch.randn_like(x) * 0.005
-            x += noise
+            #x += self.get_noise(x)
             label = torch.ones_like(label).type(torch.FloatTensor).to(device)
             y_hat_real = self.discriminator(x)
             real_loss = F.binary_cross_entropy(y_hat_real.squeeze(), label)
@@ -116,8 +114,7 @@ class DCGAN(LightningModule):
             z = torch.randn((x.size(0), 100)).to(device)
             label = torch.zeros_like(label).type(torch.FloatTensor).to(device)
             gen_img = self.generator(z)
-            noise = torch.randn_like(gen_img) * 0.005
-            gen_img += noise
+            gen_img = gen_img + self.get_noise(gen_img)
             y_hat_fake = self.discriminator(gen_img)
             fake_loss = F.binary_cross_entropy(y_hat_fake.squeeze(), label)
             
@@ -138,10 +135,9 @@ class DCGAN(LightningModule):
             x, label = x.to(device), label.to(device)
             label = torch.ones_like(label).type(torch.FloatTensor).to(device)
             z = torch.randn((x.size(0), 100)).to(device)
-            gen_imgs = self.generator(z)
-            noise = torch.randn_like(gen_imgs) * 0.005
-            gen_imgs = gen_imgs + noise
-            y_hat = self.discriminator(gen_imgs)
+            gen_img = self.generator(z)
+            #gen_img = gen_img + self.get_noise(gen_img)
+            y_hat = self.discriminator(gen_img)
             loss = F.binary_cross_entropy(y_hat.squeeze(), label)
             
             # logs
@@ -164,7 +160,7 @@ class DCGAN(LightningModule):
     def show_current_generation(self):
         z = torch.randn((1,100)).to(device)
         gen_img = self.generator(z).squeeze()
-        gen_img = (gen_img + 1) / 2
+        gen_img = (gen_img + 1) / 2 # renormalize back to [0,1]
         #gen_img.unsqueeze_(0)
         #gen_img = gen_img.repeat(3, 1, 1)
         gen_img = gen_img.squeeze().data.cpu()
@@ -172,7 +168,7 @@ class DCGAN(LightningModule):
     
     def generate(self, z):
         gen_img = self.generator(z).squeeze()
-        gen_img = (gen_img + 1) / 2
+        gen_img = (gen_img + 1) / 2 # renormalize back to [0,1]
         #gen_img.unsqueeze_(0)
         #gen_img = gen_img.repeat(3, 1, 1)
         gen_img = gen_img.squeeze().data.cpu()
@@ -209,7 +205,7 @@ class DCGAN(LightningModule):
     def train_dataloader(self):
         image_transforms = transforms.Compose([
             #transforms.Grayscale(),
-            transforms.Resize((55,55)),
+            transforms.Resize((32,32)),
             transforms.ToTensor(),
             #transforms.Normalize((0.5,),(0.5,))
             transforms.Normalize((0.5, 0.5, 0.5),(0.5, 0.5, 0.5))
@@ -221,7 +217,7 @@ class DCGAN(LightningModule):
     def val_dataloader(self):
         image_transforms = transforms.Compose([
             #transforms.Grayscale(),
-            transforms.Resize((55,55)),
+            transforms.Resize((32,32)),
             transforms.ToTensor(),
             #transforms.Normalize((0.5, ),(0.5, ))
             transforms.Normalize((0.5, 0.5, 0.5),(0.5, 0.5, 0.5))
