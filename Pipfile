@@ -7,7 +7,7 @@ verify_ssl = true
 
 [packages]
 torch = "==1.2.0"
-torchvision = "==1.2.0"
+torchvision = "==0.4.0"
 jupyter = "*"
 panda = "*"
 matplotlib = "*"
