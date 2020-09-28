@@ -9,7 +9,7 @@ Generation after 100 epochs.
 
 This repository holds a variety of GAN for generating images.
 
-
+[Explanation of what GAN is]
 
 
 ## Quick Start
@@ -19,42 +19,34 @@ This repository holds a variety of GAN for generating images.
 pip install -r requirements.txt
 ```
 
-#### Dataset 
-Copy your desired images that GAN should learn to generate in `datasets/{name_of_dataset}` folders.
-
 #### Training
 
 Basic training command:
 ```
-python run.py \
---dataset {name_of_dataset} \
+python train.py \
+--dataset {path_to_dataset} \
 --generator cnn \
 --discriminator cnn \
---loss minimax \
---model_output {path_to_model}
+--loss minmax
 ```
 
 More configuration:
 ```
-python run.py \
+python train.py \
 --dataset {name_of_dataset} \
 --generator cnn \
---discriminator dense \
---loss minimax \
---model_output {path_to_model}
+--discriminator fc \
+--loss minmax \
 --gen_lr 1e-4 \
---disc_lr 1e-4 \
---gen_freq 1 \
---disc_freq 1 
+--disc_lr 1e-4
 ```
 
 #### Inference
 
-For generating images:
+<!-- For generating images:
 ```
 python generate.py -n 5 --model_output {path_to_model}
-```
+``` -->
 
 #### To Do:
 - Generating interpolation GIF (Coming Soon)
-

@@ -1,3 +1,6 @@
 /dataset
-*/lightning_logs/
+lightning_logs
 .ipynb_checkpoints
+.env/
+datasets/
+__pycache__

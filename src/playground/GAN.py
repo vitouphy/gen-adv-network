@@ -22,26 +22,26 @@ class Discriminator(nn.Module):
             nn.Conv2d(3, 16, 3, padding=1),
             nn.LeakyReLU(0.2, inplace=True),
 #             nn.MaxPool2d(2, stride=2),
-            
+
             nn.Conv2d(16, 32, 3, padding=1),
             nn.LeakyReLU(0.2, inplace=True),
             nn.MaxPool2d(2, stride=2),
-            
+
             nn.Conv2d(32, 32, 3, padding=0),
             nn.LeakyReLU(0.2, inplace=True),
 #             nn.MaxPool2d(2, stride=2),
-            
+
             nn.Conv2d(32, 64, 5, padding=0),
             nn.LeakyReLU(0.2, inplace=True),
             nn.MaxPool2d(3, stride=2),
-            
+
             nn.Flatten(),
-            
+
             nn.Linear(1024, 256),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(256, 1)
         )
-        
+
     def forward(self, x):
         h = self.fc(x)
         return h
@@ -82,18 +82,18 @@ class GAN(LightningModule):
 
         dir_path = '/kaggle/input/'
         data = datasets.ImageFolder(DIR_PATH, transform=image_transforms)
-        
+
         N = len(data)
         indices = list(range(N))
         random.shuffle(indices)
-        
+
         self.train_indices = indices[:int(N*0.7)]
         self.valid_indices = indices[int(N*0.7):int(N*0.85)]
         self.test_indices  = indices[int(N*0.85):]
 
 
     def training_step(self, batch, batch_idx, optimizer_idx):
-        
+
         # discriminator
         if optimizer_idx == 0:
             x, label = batch
@@ -101,16 +101,16 @@ class GAN(LightningModule):
             #label = torch.ones_like(label).to(device)
             y_hat_real = self.discriminator(x)
             #real_loss = F.cross_entropy(y_hat_real, label)
-            
+
             z = torch.randn((x.size(0), 128)).to(device)
             #label = torch.zeros_like(label).to(device)
             y_hat_fake = self.discriminator(self.generator(z))
             #fake_loss = F.cross_entropy(y_hat_fake, label)
-            
+
             loss = -(y_hat_real - y_hat_fake).mean()
 
             #loss = real_loss + fake_loss
-            
+
             # logs
             tqdm_dict = {'train_d_loss': loss}
             output = {
@@ -119,7 +119,7 @@ class GAN(LightningModule):
                 'log': tqdm_dict
             }
             return output
-        
+
         # generator
         elif optimizer_idx == 1:
             x, label = batch
@@ -128,7 +128,7 @@ class GAN(LightningModule):
             y_hat = self.discriminator(self.generator(z))
             #loss = F.cross_entropy(y_hat, label)
             loss = -y_hat.mean()
-            
+
             # logs
             tqdm_dict = {'train_g_loss': loss}
             output = {
@@ -137,13 +137,13 @@ class GAN(LightningModule):
                 'log': tqdm_dict
             }
             return output
-     
-    
+
+
     def show_current_generation(self):
         z = torch.randn((1,128)).to(device)
         gen_img = self.generator(z)
         #score = self.discriminator(gen_img)
-        
+
         gen_img = gen_img.squeeze().data.cpu()
         #img = transforms.ToPILImage()(gen_img).convert("RGB")
         #print ("Score of this Generation: ", score)
@@ -153,7 +153,7 @@ class GAN(LightningModule):
         return gen_img
 
     def validation_step(self, batch, batch_idx):
-        
+
         # show the first image
         if batch_idx == 0:
             for i in range(5):
@@ -161,17 +161,17 @@ class GAN(LightningModule):
                 epoch = self.trainer.current_epoch #global_step
                 step = self.trainer.global_step
                 self.logger.experiment.add_image("Generation {}-{}".format(epoch, i), img, step)
-        
+
         output = self.training_step(batch, batch_idx, 1)
         return {
             'val_loss': output['loss']
         }
-    
+
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         tensorboard_logs = {'val_loss': avg_loss}
         return {'val_loss': avg_loss, 'log': tensorboard_logs}
-        
+
     def configure_optimizers(self):
         opt_generator = torch.optim.Adam(self.generator.parameters(), lr=1e-4)
         opt_discriminator = torch.optim.Adam(self.discriminator.parameters(), lr=4e-4)
@@ -185,7 +185,7 @@ class GAN(LightningModule):
         data = datasets.ImageFolder(DIR_PATH, transform=image_transforms)
         train_sampler = SubsetRandomSampler(self.train_indices)
         return DataLoader(data, sampler=train_sampler, batch_size=64)
-    
+
     def val_dataloader(self):
         image_transforms = transforms.Compose([
             transforms.Resize((32,32)),
@@ -196,5 +196,5 @@ class GAN(LightningModule):
         return DataLoader(data, sampler=valid_sampler, batch_size=64)
 
 model = GAN().to(device)
-trainer = pl.Trainer(gpus=1)    
+trainer = pl.Trainer(gpus=1)
 trainer.fit(model)
