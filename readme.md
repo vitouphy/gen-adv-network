@@ -9,7 +9,7 @@ Generation after 100 epochs.
 
 This repository holds a variety of GAN for generating images.
 
-[Explanation of what GAN is]
+<!-- [Explanation of what GAN is] -->
 
 
 ## Quick Start
